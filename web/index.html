@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regroove | RGRV - Phrase Arpeggiator</title>
+    <meta name="description" content="Turn a phrase into a live arpeggio or chord sequence, straight to WebMIDI.">
+    <meta name="theme-color" content="#CF1A37">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <header class="top-banner">
+        <button class="hamburger" id="menu-btn" type="button"
+                aria-controls="menu" aria-expanded="false"
+                aria-label="Open the navigation"
+                title="Open the navigation">☰</button>
+        <div class="banner-mark">Regroove</div>
+        <div class="banner-title">RGRV</div>
+        <div class="connection-indicator" id="connectionIndicator">
+            <span class="indicator-dot"></span>
+            <span class="indicator-text" id="connectionText">MIDI offline</span>
+        </div>
+    </header>
+
+    <div class="scene active" id="scene-main">
+        <div class="container">
+            <section class="section section-phrase">
+                <h2 class="section-title">The Phrase</h2>
+
+                <label class="field">
+                    <span>Letters, numbers, rests and punctuation</span>
+                    <textarea id="phraseInput" rows="3" spellcheck="false"
+                              autocomplete="off" autocapitalize="off">Blade</textarea>
+                </label>
+
+                <div class="examples" id="examples">
+                    <button type="button" class="chip" data-phrase="Regroove">Regroove</button>
+                    <button type="button" class="chip" data-phrase="Blade">Blade</button>
+                    <button type="button" class="chip" data-phrase="Techno">Techno</button>
+                    <button type="button" class="chip" data-phrase="1,2,3 Techno">1,2,3 Techno</button>
+                    <button type="button" class="chip" data-phrase="!B?LADE">!B?LADE</button>
+                    <button type="button" class="chip" data-phrase="BLADE" data-chord="1">BLADE · chords</button>
+                    <button type="button" class="chip" data-phrase="Listen (this things rocks)">Listen (loop)</button>
+                </div>
+
+                <div class="transport">
+                    <button type="button" id="playBtn" class="primary" disabled>▶ Regroove</button>
+                    <button type="button" id="stopBtn" class="transport-button" disabled>■ Stop</button>
+                    <label class="switch">
+                        <input type="checkbox" id="loopToggle" checked>
+                        <span>Loop</span>
+                    </label>
+                </div>
+
+                <div id="status" class="message" role="status" aria-live="polite">
+                    Loading the WebAssembly parser…
+                </div>
+
+                <div class="lane-head">
+                    <span>16-step lane</span>
+                    <span id="playheadLabel">-</span>
+                </div>
+                <div class="step-grid" id="stepGrid" aria-hidden="true"></div>
+
+                <div class="note-strip" id="noteStrip" aria-label="Parsed notes"></div>
+            </section>
+
+            <aside class="section section-midi">
+                <h2 class="section-title">MIDI Output</h2>
+
+                <label class="field">
+                    <span>Destination</span>
+                    <select id="midiOutput">
+                        <option value="">Enable WebMIDI…</option>
+                    </select>
+                </label>
+
+                <div class="inline-controls">
+                    <label class="field">
+                        <span>Melodic channel</span>
+                        <select id="channelSelect">
+                            <option value="0">Ch 1</option>
+                            <option value="1">Ch 2</option>
+                            <option value="2">Ch 3</option>
+                            <option value="3">Ch 4</option>
+                            <option value="4">Ch 5</option>
+                            <option value="5">Ch 6</option>
+                            <option value="6">Ch 7</option>
+                            <option value="7">Ch 8</option>
+                            <option value="8">Ch 9</option>
+                            <option value="9">Ch 10</option>
+                            <option value="10">Ch 11</option>
+                            <option value="11">Ch 12</option>
+                            <option value="12">Ch 13</option>
+                            <option value="13">Ch 14</option>
+                            <option value="14">Ch 15</option>
+                            <option value="15">Ch 16</option>
+                            <option value="all" selected>All channels</option>
+                        </select>
+                    </label>
+                    <button type="button" id="refreshMidi" class="small-button">Refresh</button>
+                </div>
+            </aside>
+
+            <section class="section section-sound">
+                <h2 class="section-title">Regroove</h2>
+
+                <div class="control-grid">
+                    <label class="field">
+                        <span>Tempo (BPM)</span>
+                        <input id="bpmInput" type="number" min="20" max="999" step="1" value="120">
+                    </label>
+                    <label class="field">
+                        <span>Octave</span>
+                        <input id="octaveInput" type="number" min="-5" max="5" step="1" value="0">
+                    </label>
+                    <label class="field">
+                        <span>Transpose</span>
+                        <input id="transposeInput" type="number" min="-24" max="24" step="1" value="0">
+                    </label>
+                    <label class="field">
+                        <span>Gate %</span>
+                        <input id="gateInput" type="number" min="1" max="100" step="1" value="85">
+                    </label>
+                </div>
+
+                <div class="chord-row">
+                    <label class="switch">
+                        <input type="checkbox" id="chordToggle">
+                        <span>Chords from each letter</span>
+                    </label>
+                    <label class="field compact">
+                        <span>Hold</span>
+                        <input id="holdInput" type="number" min="1" max="64" step="1" value="4">
+                    </label>
+                </div>
+            </section>
+
+            <section class="section section-drums">
+                <h2 class="section-title">Drums · Channel 10</h2>
+
+                <div class="control-grid">
+                    <label class="field">
+                        <span>Bass drum</span>
+                        <input id="kickInput" type="text" placeholder="4 or xoooxooo" spellcheck="false">
+                    </label>
+                    <label class="field">
+                        <span>Snare</span>
+                        <input id="snareInput" type="text" placeholder="2 or oooxooox" spellcheck="false">
+                    </label>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="scene" id="scene-debug">
+        <div class="container single">
+            <section class="section">
+                <h2 class="section-title">Live readout</h2>
+
+                <div class="monitor-row">
+                    <span>Parser</span><strong id="parserState">WASM loading…</strong>
+                </div>
+                <div class="monitor-row">
+                    <span>Phrase</span><strong id="phraseSummary">-</strong>
+                </div>
+                <div class="monitor-row">
+                    <span>Clock</span><strong id="clockReadout">120 BPM · 125 ms</strong>
+                </div>
+                <div class="monitor-row">
+                    <span>Base A</span><strong id="baseReadout">C4 · MIDI 60</strong>
+                </div>
+                <div class="monitor-row">
+                    <span>Grid</span><strong id="gridReadout">16 steps/bar · 120 ticks/step</strong>
+                </div>
+                <div class="monitor-row">
+                    <span>Destination</span><strong id="destinationReadout">No output</strong>
+                </div>
+            </section>
+
+            <section class="section section-about">
+                <h2 class="section-title">How a phrase reads</h2>
+
+                <div class="grammar">
+                    <div><code>A-Z</code><span>chromatic keys from middle C (MIDI 60)</span></div>
+                    <div><code>1-0</code><span>ten chromatic notes leading into A</span></div>
+                    <div><code>,</code><span>one sixteenth of rest</span></div>
+                    <div><code>.</code><span>two sixteenths of rest</span></div>
+                    <div><code>!</code><span>accent the next note</span></div>
+                    <div><code>?</code><span>tie into the next note (slide)</span></div>
+                    <div><code>( … )</code><span>after the first pass, loop the bracket</span></div>
+                    <div><span class="grammar-note">spaces and other punctuation are free</span></div>
+                </div>
+
+                <div class="tiny-print">
+                    <span>(C) 2026, Gerard Braad (Regroove | RGRV). MIT licensed.</span>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="menu-overlay" id="menu-overlay"></div>
+    <nav class="menu-panel" id="menu" aria-label="Views" aria-hidden="true">
+        <button class="menu-close" id="menu-close" type="button"
+                aria-label="Close the navigation">×</button>
+        <div class="menu-items">
+            <button class="nav-item active" data-scene="main" type="button">Main</button>
+            <button class="nav-item" data-scene="debug" type="button">Debug</button>
+        </div>
+    </nav>
+
+    <script src="./wasm/rgrv.js"></script>
+    <script src="./app.js"></script>
+</body>
+</html>

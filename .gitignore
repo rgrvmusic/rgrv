@@ -1,0 +1,6 @@
+build/
+build-windows/
+build-*/
+web/wasm/
+*.mid
+*.exe
