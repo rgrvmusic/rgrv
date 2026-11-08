@@ -217,11 +217,13 @@ static void buf_var(byte_buf *b, uint32_t v)
     while (n > 0) buf_put(b, tmp[--n]);
 }
 
-bool rgrv_write_smf(const char *path, const rgrv_song *song, const char *name,
-                    int bpm, char *err, size_t errlen)
+bool rgrv_smf_bytes(const rgrv_song *song, const char *name, int bpm,
+                    uint8_t **out, size_t *out_len, char *err, size_t errlen)
 {
+    if (out) *out = NULL;
+    if (out_len) *out_len = 0;
     if (err && errlen) err[0] = '\0';
-    if (!path || !song) {
+    if (!song || !out || !out_len) {
         if (err) snprintf(err, errlen, "no output");
         return false;
     }
@@ -279,13 +281,6 @@ bool rgrv_write_smf(const char *path, const rgrv_song *song, const char *name,
         return false;
     }
 
-    FILE *f = fopen(path, "wb");
-    if (!f) {
-        free(track.p);
-        if (err) snprintf(err, errlen, "cannot write '%s'", path);
-        return false;
-    }
-
     const uint8_t head[14] = {
         'M',  'T',  'h',  'd',  0, 0, 0, 6,
         0,    0, /* format 0 */
@@ -299,13 +294,53 @@ bool rgrv_write_smf(const char *path, const rgrv_song *song, const char *name,
         (uint8_t)((track.len >> 8) & 0xFF),
         (uint8_t)(track.len & 0xFF)
     };
-
-    bool ok = fwrite(head, 1, sizeof(head), f) == sizeof(head) &&
-              fwrite(chunk, 1, sizeof(chunk), f) == sizeof(chunk) &&
-              fwrite(len_be, 1, sizeof(len_be), f) == sizeof(len_be) &&
-              fwrite(track.p, 1, track.len, f) == track.len;
-    if (fclose(f) != 0) ok = false;
+    const size_t total =
+        sizeof(head) + sizeof(chunk) + sizeof(len_be) + track.len;
+    uint8_t *bytes = (uint8_t *)malloc(total);
+    if (!bytes) {
+        free(track.p);
+        if (err) snprintf(err, errlen, "out of memory");
+        return false;
+    }
+    size_t at_byte = 0;
+    memcpy(bytes + at_byte, head, sizeof(head));
+    at_byte += sizeof(head);
+    memcpy(bytes + at_byte, chunk, sizeof(chunk));
+    at_byte += sizeof(chunk);
+    memcpy(bytes + at_byte, len_be, sizeof(len_be));
+    at_byte += sizeof(len_be);
+    memcpy(bytes + at_byte, track.p, track.len);
     free(track.p);
+
+    *out = bytes;
+    *out_len = total;
+    return true;
+}
+
+bool rgrv_write_smf(const char *path, const rgrv_song *song, const char *name,
+                    int bpm, char *err, size_t errlen)
+{
+    if (err && errlen) err[0] = '\0';
+    if (!path) {
+        if (err) snprintf(err, errlen, "no output");
+        return false;
+    }
+
+    uint8_t *bytes = NULL;
+    size_t len = 0;
+    if (!rgrv_smf_bytes(song, name, bpm, &bytes, &len, err, errlen))
+        return false;
+
+    FILE *f = fopen(path, "wb");
+    if (!f) {
+        free(bytes);
+        if (err) snprintf(err, errlen, "cannot write '%s'", path);
+        return false;
+    }
+
+    bool ok = fwrite(bytes, 1, len, f) == len;
+    if (fclose(f) != 0) ok = false;
+    free(bytes);
 
     if (!ok) {
         if (err) snprintf(err, errlen, "cannot write '%s'", path);
@@ -591,12 +626,12 @@ int rgrv_play(const rgrv_phrase *p, const rgrv_drums *d, int channel, int bpm,
 
     out_dev o;
     memset(&o, 0, sizeof(o));
-    char port_name[256] = {0};
     char chanbuf[32];
     const char *chlabel = channel_label(channel, chanbuf, sizeof(chanbuf));
 
     if (use_rtmidi) {
 #if defined(RGRV_HAVE_RTMIDI)
+        char port_name[256] = {0};
         char err[256];
         if (!open_rtmidi(&o, port, port_name, sizeof(port_name), err,
                          sizeof(err))) {

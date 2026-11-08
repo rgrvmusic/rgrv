@@ -24,6 +24,7 @@ if(EMSCRIPTEN)
     add_executable(rgrv_web
         src/wasm.c
         src/phrase.c
+        src/midi.c
     )
     set_target_properties(rgrv_web PROPERTIES
         OUTPUT_NAME rgrv
@@ -42,8 +43,8 @@ if(EMSCRIPTEN)
         "-sALLOW_MEMORY_GROWTH=1"
         "-sFILESYSTEM=0"
         "-sASSERTIONS=0"
-        "-sEXPORTED_RUNTIME_METHODS=['ccall','UTF8ToString']"
-        "-sEXPORTED_FUNCTIONS=['_rgrv_web_build','_rgrv_web_error','_rgrv_web_version','_rgrv_web_note_count','_rgrv_web_note_tick','_rgrv_web_note_dur','_rgrv_web_note_number','_rgrv_web_note_velocity','_rgrv_web_steps','_rgrv_web_loop_start','_rgrv_web_loop_end','_rgrv_web_has_loop','_rgrv_web_clamped','_rgrv_web_kick','_rgrv_web_snare','_rgrv_web_step_ticks','_rgrv_web_steps_per_bar','_rgrv_web_base_note']"
+        "-sEXPORTED_RUNTIME_METHODS=['ccall','UTF8ToString','HEAPU8']"
+        "-sEXPORTED_FUNCTIONS=['_rgrv_web_build','_rgrv_web_build_midi','_rgrv_web_midi_ptr','_rgrv_web_midi_size','_rgrv_web_error','_rgrv_web_version','_rgrv_web_note_count','_rgrv_web_note_tick','_rgrv_web_note_dur','_rgrv_web_note_number','_rgrv_web_note_velocity','_rgrv_web_steps','_rgrv_web_loop_start','_rgrv_web_loop_end','_rgrv_web_has_loop','_rgrv_web_clamped','_rgrv_web_kick','_rgrv_web_snare','_rgrv_web_step_ticks','_rgrv_web_steps_per_bar','_rgrv_web_base_note']"
     )
 
     # web/index.html loads wasm/rgrv.js.

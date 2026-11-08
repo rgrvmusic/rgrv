@@ -130,6 +130,7 @@
             });
         });
         $('stopBtn').addEventListener('click', () => stopPlayback('Stopped.'));
+        $('downloadBtn').addEventListener('click', downloadMidi);
 
         $('phraseInput').addEventListener('input', () => {
             if (state.playing) stopPlayback('Stopped: phrase changed.');
@@ -337,6 +338,64 @@
     function normalizePhrase(text) {
         const collapsed = text.replace(/\s+/g, ' ').trim();
         return collapsed || '(drums)';
+    }
+
+    /* Download ---------------------------------------------------------- */
+
+    function slugFromPhrase(text) {
+        const letters = text.match(/[A-Za-z]+/);
+        if (letters) return letters[0].toLowerCase().slice(0, 127);
+        const digits = text.match(/[0-9]+/);
+        if (digits) return digits[0].slice(0, 127);
+        return 'rgrv';
+    }
+
+    function downloadMidi() {
+        if (!state.module) {
+            setStatus('The WebAssembly parser is still loading.', 'error');
+            return;
+        }
+        if (!buildPhrase()) return;
+
+        const opts = readOptions();
+        const selected = $('channelSelect').value;
+        const channel = selected === 'all' ? 0 : Number(selected);
+        const name = slugFromPhrase($('phraseInput').value);
+        const ok = state.module.ccall(
+            'rgrv_web_build_midi',
+            'number',
+            ['number', 'number', 'number', 'string'],
+            [opts.bpm, channel, 1, name]
+        );
+
+        if (!ok) {
+            const message = state.module.UTF8ToString(
+                state.module._rgrv_web_error()
+            );
+            setStatus(message || 'Could not build the .mid file.', 'error');
+            return;
+        }
+
+        const ptr = state.module._rgrv_web_midi_ptr();
+        const size = state.module._rgrv_web_midi_size();
+        const bytes = state.module.HEAPU8.slice(ptr, ptr + size);
+        try {
+            const blob = new Blob([bytes], { type: 'audio/midi' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${name}.mid`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+        } catch (err) {
+            setStatus(`Could not create the download: ${err.message}`, 'error');
+            return;
+        }
+
+        setStatus(
+            `We have regrooved '${state.phrase}' to ${name}.mid`,
+            'success'
+        );
     }
 
     /* Visuals ----------------------------------------------------------- */
@@ -870,8 +929,10 @@
     function updateTransportButtons() {
         const play = $('playBtn');
         const stop = $('stopBtn');
+        const download = $('downloadBtn');
         play.disabled = state.playing || !state.module;
         stop.disabled = !state.playing;
+        download.disabled = !state.module;
         play.textContent = state.playing ? '▶ Playing' : '▶ Regroove';
     }
 

@@ -10,6 +10,7 @@
 #include "rgrv.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifdef __EMSCRIPTEN__
@@ -23,11 +24,16 @@ static rgrv_phrase g_phrase;
 static rgrv_drums g_drums;
 static char g_error[256];
 static bool g_ready;
+static uint8_t *g_midi;
+static size_t g_midi_len;
 
 static void drop_phrase(void)
 {
     rgrv_phrase_free(&g_phrase);
     memset(&g_drums, 0, sizeof(g_drums));
+    free(g_midi);
+    g_midi = NULL;
+    g_midi_len = 0;
     g_ready = false;
 }
 
@@ -113,7 +119,57 @@ RGRV_EXPORT int rgrv_web_build(const char *text, int octave, int transpose,
     return 1;
 }
 
+/* MIDI file -------------------------------------------------------------- */
+
+RGRV_EXPORT int rgrv_web_build_midi(int bpm, int channel, int repeat,
+                                    const char *name)
+{
+    if (!g_ready) {
+        fail("no phrase");
+        return 0;
+    }
+    free(g_midi);
+    g_midi = NULL;
+    g_midi_len = 0;
+
+    if (bpm < 20 || bpm > 999) {
+        fail("tempo must be 20..999");
+        return 0;
+    }
+    if (channel < 0 || channel > 15) {
+        fail("channel must be 1..16");
+        return 0;
+    }
+
+    rgrv_song song;
+    if (!rgrv_build_song(&g_phrase, &g_drums, channel, repeat, &song,
+                         g_error, sizeof(g_error))) {
+        return 0;
+    }
+
+    uint8_t *bytes = NULL;
+    size_t len = 0;
+    const bool ok = rgrv_smf_bytes(&song, name, bpm, &bytes, &len, g_error,
+                                   sizeof(g_error));
+    rgrv_song_free(&song);
+    if (!ok) return 0;
+
+    g_midi = bytes;
+    g_midi_len = len;
+    return 1;
+}
+
 /* Getters ---------------------------------------------------------------- */
+
+RGRV_EXPORT const uint8_t *rgrv_web_midi_ptr(void)
+{
+    return g_midi;
+}
+
+RGRV_EXPORT int rgrv_web_midi_size(void)
+{
+    return (int)g_midi_len;
+}
 
 RGRV_EXPORT const char *rgrv_web_error(void)
 {

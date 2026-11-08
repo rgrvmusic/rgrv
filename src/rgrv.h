@@ -119,6 +119,11 @@ void rgrv_song_free(rgrv_song *s);
 bool rgrv_write_smf(const char *path, const rgrv_song *song,
                     const char *name, int bpm, char *err, size_t errlen);
 
+/* Serialize the same file in memory.  `*out` is malloc'd and belongs to the
+ * caller. */
+bool rgrv_smf_bytes(const rgrv_song *song, const char *name, int bpm,
+                    uint8_t **out, size_t *out_len, char *err, size_t errlen);
+
 /* Live output.  `channel` is 0..15, or -1 to drive every channel (the live
  * default).  `use_rtmidi` selects an RtMidi output port; otherwise the raw
  * MIDI byte stream goes to stdout.  Plays until SIGINT/SIGTERM, or for one

@@ -1,5 +1,5 @@
 /* RGRV offline cache. Every path is relative to the page root. */
-const CACHE_NAME = 'rgrv-v1';
+const CACHE_NAME = 'rgrv-v2';
 const urlsToCache = [
   './',
   './index.html',
